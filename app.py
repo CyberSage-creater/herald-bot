@@ -1,3 +1,10 @@
+from telegram.ext import CommandHandler
+
+async def whereami(update, context):
+    chat = update.effective_chat
+    await update.message.reply_text(f"Chat title: {chat.title}\nChat ID: {chat.id}")
+
+application.add_handler(CommandHandler("whereami", whereami))
 import json
 
 # Load scrolls from herald_scrolls.json

@@ -1,4 +1,8 @@
+import json
 
+# Load scrolls from herald_scrolls.json
+with open("herald_scrolls.json", "r", encoding="utf-8") as f:
+    SCROLLS = json.load(f)
 # Herald of the Grove — Telegram Bot
 # Schedules 3 daily posts (morning/afternoon/evening), rotates through 7 scrolls per deck.
 # Injects live member count and appends deck signature.

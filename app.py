@@ -1,3 +1,17 @@
+from telegram.ext import Application, CommandHandler
+
+# Create the application (replace YOUR_TOKEN with your bot token or use env var)
+application = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
+
+# Example handler function
+async def whereami(update, context):
+    await update.message.reply_text("You are in the Grove 🌱⚡")
+
+# Add command handler
+application.add_handler(CommandHandler("whereami", whereami))
+
+# Run the bot
+application.run_polling()
 from telegram.ext import CommandHandler
 
 async def whereami(update, context):

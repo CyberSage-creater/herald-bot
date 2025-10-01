@@ -1,139 +1,101 @@
-from telegram.ext import Application, CommandHandler
-
-# Create the application (replace YOUR_TOKEN with your bot token or use env var)
-application = Application.builder().token("YOUR_TELEGRAM_BOT_TOKEN").build()
-
-# Example handler function
-async def whereami(update, context):
-    await update.message.reply_text("You are in the Grove 🌱⚡")
-
-# Add command handler
-application.add_handler(CommandHandler("whereami", whereami))
-
-# Run the bot
-application.run_polling()
-from telegram.ext import CommandHandler
-
-async def whereami(update, context):
-    chat = update.effective_chat
-    await update.message.reply_text(f"Chat title: {chat.title}\nChat ID: {chat.id}")
-
-application.add_handler(CommandHandler("whereami", whereami))
-import json
-
-# Load scrolls from herald_scrolls.json
-with open("herald_scrolls.json", "r", encoding="utf-8") as f:
-    SCROLLS = json.load(f)
-# Herald of the Grove — Telegram Bot
-# Schedules 3 daily posts (morning/afternoon/evening), rotates through 7 scrolls per deck.
-# Injects live member count and appends deck signature.
-#
-# Env Vars:
-#   BOT_TOKEN    -> Telegram bot token
-#   CHAT_ID      -> Channel/group/chat id (e.g., -1001234567890)
-#   TIMEZONE     -> IANA tz string (default: America/Vancouver)
-#   MORNING_TIME -> HH:MM (24h) default 09:00
-#   AFTERNOON_TIME -> HH:MM (24h) default 13:00
-#   EVENING_TIME -> HH:MM (24h) default 20:00
-#   SCROLLS_PATH -> Path to herald_scrolls.json (default: ./herald_scrolls.json)
-
 import os
 import json
-import asyncio
-from datetime import datetime, date
+from datetime import time, datetime
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-
-from telegram import Bot
+from telegram import Update
 from telegram.constants import ParseMode
-from telegram.error import TelegramError
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+)
 
-# --- Config ---
+# ── Config from env ────────────────────────────────────────────────────────────
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = int(os.getenv("CHAT_ID", "0"))
+CHAT_ID = int(os.getenv("CHAT_ID", "0"))  # optional for scheduled posts
 TIMEZONE = os.getenv("TIMEZONE", "America/Vancouver")
+SCROLLS_PATH = os.getenv("SCROLLS_PATH", "./herald_scrolls.json")
 
 MORNING_TIME = os.getenv("MORNING_TIME", "09:00")
 AFTERNOON_TIME = os.getenv("AFTERNOON_TIME", "13:00")
 EVENING_TIME = os.getenv("EVENING_TIME", "20:00")
 
-SCROLLS_PATH = os.getenv("SCROLLS_PATH", "./herald_scrolls.json")
-
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is required (set env var).")
-if CHAT_ID == 0:
-    raise RuntimeError("CHAT_ID is required (set env var to your channel/group id).")
 
+# ── Load scrolls (JSON structure shown below) ──────────────────────────────────
 with open(SCROLLS_PATH, "r", encoding="utf-8") as f:
     SCROLLS = json.load(f)
 
 TZ = ZoneInfo(TIMEZONE)
-bot = Bot(token=BOT_TOKEN)
 
 def day_index_today() -> int:
     """Return 0..6 based on local weekday (Mon=0 ... Sun=6)."""
-    local_now = datetime.now(TZ)
-    # Python: Monday=0, Sunday=6 — maps perfectly to 7-item decks.
-    return local_now.weekday()
+    return datetime.now(TZ).weekday()
 
-async def get_member_count() -> int:
-    """Fetch live member count for the target chat."""
+async def get_member_count(context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Fetch live member count for CHAT_ID; returns 0 if not available."""
     try:
-        count = await bot.get_chat_member_count(CHAT_ID)
-        return int(count)
-    except TelegramError as e:
-        # Fallback to 0 if not available (e.g., channels may require alternative stats)
-        print(f"[WARN] Failed to fetch member count: {e}")
+        return await context.bot.get_chat_member_count(CHAT_ID)
+    except Exception:
         return 0
 
 def render_scroll(lines: list[str], member_count: int) -> str:
-    rendered = []
-    for line in lines:
-        rendered.append(line.replace("[X]", str(member_count)))
-    return "\n".join(rendered)
+    return "\n".join([line.replace("[X]", str(member_count)) for line in lines])
 
-async def post_deck(deck_name: str):
+async def post_deck(context: ContextTypes.DEFAULT_TYPE, deck_name: str):
+    if CHAT_ID == 0:
+        # Nothing to post to; just skip
+        return
     idx = day_index_today()
     lines = SCROLLS[deck_name][idx]
-    members = await get_member_count()
+    members = await get_member_count(context)
     text = render_scroll(lines, members)
+    await context.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=ParseMode.HTML)
 
-    try:
-        await bot.send_message(chat_id=CHAT_ID, text=text)
-        print(f"[OK] Posted {deck_name} scroll #{idx+1}")
-    except TelegramError as e:
-        print(f"[ERROR] Failed to post {deck_name}: {e}")
+# ── JobQueue callbacks ─────────────────────────────────────────────────────────
+async def post_morning(context: ContextTypes.DEFAULT_TYPE):
+    await post_deck(context, "morning")
 
-async def main():
-    # Immediate startup log
-    me = await bot.get_me()
-    print(f"Herald online as @{me.username} → posting to {CHAT_ID} in {TIMEZONE}")
+async def post_afternoon(context: ContextTypes.DEFAULT_TYPE):
+    await post_deck(context, "afternoon")
 
-    scheduler = AsyncIOScheduler(timezone=TIMEZONE)
+async def post_evening(context: ContextTypes.DEFAULT_TYPE):
+    await post_deck(context, "evening")
 
-    # Parse times
-    m_h, m_m = map(int, MORNING_TIME.split(":"))
-    a_h, a_m = map(int, AFTERNOON_TIME.split(":"))
-    e_h, e_m = map(int, EVENING_TIME.split(":"))
+# ── Commands ───────────────────────────────────────────────────────────────────
+async def whereami(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    title = chat.title or "(no title — likely a DM)"
+    await update.message.reply_text(f"Chat title: {title}\nChat ID: {chat.id}")
 
-    # Schedule daily posts
-    scheduler.add_job(lambda: asyncio.create_task(post_deck("morning")),
-                      CronTrigger(hour=m_h, minute=m_m))
-    scheduler.add_job(lambda: asyncio.create_task(post_deck("afternoon")),
-                      CronTrigger(hour=a_h, minute=a_m))
-    scheduler.add_job(lambda: asyncio.create_task(post_deck("evening")),
-                      CronTrigger(hour=e_h, minute=e_m))
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Herald online. Try /whereami 🌱⚡")
 
-    scheduler.start()
+# ── Main ───────────────────────────────────────────────────────────────────────
+def _parse_hhmm(s: str) -> time:
+    h, m = map(int, s.split(":"))
+    return time(hour=h, minute=m, tzinfo=TZ)
 
-    # Keep running
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    except (KeyboardInterrupt, SystemExit):
-        pass
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    # Commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("whereami", whereami))
+
+    # Scheduling (only if CHAT_ID provided)
+    if CHAT_ID != 0:
+        m_t = _parse_hhmm(MORNING_TIME)
+        a_t = _parse_hhmm(AFTERNOON_TIME)
+        e_t = _parse_hhmm(EVENING_TIME)
+
+        app.job_queue.run_daily(post_morning, time=m_t, name="morning")
+        app.job_queue.run_daily(post_afternoon, time=a_t, name="afternoon")
+        app.job_queue.run_daily(post_evening, time=e_t, name="evening")
+
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

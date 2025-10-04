@@ -1,101 +1,124 @@
 import os
-import json
-from datetime import time, datetime
+import logging
+from datetime import time
 from zoneinfo import ZoneInfo
 
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
+    ApplicationBuilder, CommandHandler, ContextTypes
 )
 
-# ── Config from env ────────────────────────────────────────────────────────────
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = int(os.getenv("CHAT_ID", "0"))  # optional for scheduled posts
-TIMEZONE = os.getenv("TIMEZONE", "America/Vancouver")
-SCROLLS_PATH = os.getenv("SCROLLS_PATH", "./herald_scrolls.json")
-
-MORNING_TIME = os.getenv("MORNING_TIME", "09:00")
-AFTERNOON_TIME = os.getenv("AFTERNOON_TIME", "13:00")
-EVENING_TIME = os.getenv("EVENING_TIME", "20:00")
+# ── ENV ─────────────────────────────────────────────────────────────────────────
+BOT_TOKEN   = os.getenv("BOT_TOKEN")           # from BotFather
+CHANNEL_ID  = os.getenv("CHANNEL_ID")          # e.g. -1001234567890
+TZ          = os.getenv("TZ", "America/Vancouver")  # your local time zone
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN is required (set env var).")
+    raise RuntimeError("Missing BOT_TOKEN env var")
+if not CHANNEL_ID:
+    raise RuntimeError("Missing CHANNEL_ID env var")
 
-# ── Load scrolls (JSON structure shown below) ──────────────────────────────────
-with open(SCROLLS_PATH, "r", encoding="utf-8") as f:
-    SCROLLS = json.load(f)
+CHANNEL_ID = int(CHANNEL_ID)
 
-TZ = ZoneInfo(TIMEZONE)
+# ── LOGGING ─────────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=logging.INFO,
+)
+log = logging.getLogger("herald")
 
-def day_index_today() -> int:
-    """Return 0..6 based on local weekday (Mon=0 ... Sun=6)."""
-    return datetime.now(TZ).weekday()
+# ── CONTENT (tiny starter deck; you can expand anytime) ─────────────────────────
+MORNING = (
+    "The dawn awakens the Grove.\n"
+    "✨ May kindness bloom like wildflowers today.\n"
+    "🌱 Hope stirs like dew upon the leaves. 🍂"
+)
+AFTERNOON = (
+    "Fire warms the roots at noon.\n"
+    "✨ Be steady as stone, gentle as water.\n"
+    "🔥 Resilience remembers. 🔥"
+)
+EVENING = (
+    "Night gathers, but the Grove glows within.\n"
+    "✨ Patience counts the stars.\n"
+    "🌙 Harmony breathes. 🌙"
+)
 
-async def get_member_count(context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Fetch live member count for CHAT_ID; returns 0 if not available."""
-    try:
-        return await context.bot.get_chat_member_count(CHAT_ID)
-    except Exception:
-        return 0
-
-def render_scroll(lines: list[str], member_count: int) -> str:
-    return "\n".join([line.replace("[X]", str(member_count)) for line in lines])
-
-async def post_deck(context: ContextTypes.DEFAULT_TYPE, deck_name: str):
-    if CHAT_ID == 0:
-        # Nothing to post to; just skip
-        return
-    idx = day_index_today()
-    lines = SCROLLS[deck_name][idx]
-    members = await get_member_count(context)
-    text = render_scroll(lines, members)
-    await context.bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=ParseMode.HTML)
-
-# ── JobQueue callbacks ─────────────────────────────────────────────────────────
-async def post_morning(context: ContextTypes.DEFAULT_TYPE):
-    await post_deck(context, "morning")
-
-async def post_afternoon(context: ContextTypes.DEFAULT_TYPE):
-    await post_deck(context, "afternoon")
-
-async def post_evening(context: ContextTypes.DEFAULT_TYPE):
-    await post_deck(context, "evening")
-
-# ── Commands ───────────────────────────────────────────────────────────────────
-async def whereami(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    title = chat.title or "(no title — likely a DM)"
-    await update.message.reply_text(f"Chat title: {title}\nChat ID: {chat.id}")
-
+# ── COMMANDS ────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Herald online. Try /whereami 🌱⚡")
+    await update.message.reply_text(
+        "🌱 Herald of the Grove is awake.\n"
+        "Type /scroll or /blessing — or just enjoy the daily posts.\n"
+        "Take root. Rise. Grow. ⚡"
+    )
 
-# ── Main ───────────────────────────────────────────────────────────────────────
-def _parse_hhmm(s: str) -> time:
-    h, m = map(int, s.split(":"))
-    return time(hour=h, minute=m, tzinfo=TZ)
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "/start – greet the Herald\n"
+        "/scroll – receive a Grove scroll now\n"
+        "/blessing – a short blessing now\n"
+        "/stats – quick status\n"
+        "/help – this menu"
+    )
 
+async def scroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "The Grove prepares, the roots stir.\n"
+        "Quiet strength gathers in the soil. 🌌",
+        parse_mode=ParseMode.HTML
+    )
+
+async def blessing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "✨ May your steps be rooted and your breath be light today."
+    )
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    me = await context.bot.get_me()
+    await update.message.reply_text(
+        f"🤖 {me.first_name} is running.\n"
+        f"⏰ TZ: {TZ}\n"
+        f"📢 Channel ID: {CHANNEL_ID}"
+    )
+
+# ── SCHEDULED POSTS ─────────────────────────────────────────────────────────────
+async def post_text(ctx: ContextTypes.DEFAULT_TYPE, text: str):
+    await ctx.bot.send_message(chat_id=CHANNEL_ID, text=text)
+
+async def morning_job(ctx: ContextTypes.DEFAULT_TYPE):
+    await post_text(ctx, MORNING)
+
+async def afternoon_job(ctx: ContextTypes.DEFAULT_TYPE):
+    await post_text(ctx, AFTERNOON)
+
+async def evening_job(ctx: ContextTypes.DEFAULT_TYPE):
+    await post_text(ctx, EVENING)
+
+def schedule_jobs(app):
+    tz = ZoneInfo(TZ)
+    jq = app.job_queue
+
+    # 9:00am, 2:00pm, 9:00pm local time (change as you like)
+    jq.run_daily(morning_job,   time(hour=9,  minute=0, tzinfo=tz), name="morning")
+    jq.run_daily(afternoon_job, time(hour=14, minute=0, tzinfo=tz), name="afternoon")
+    jq.run_daily(evening_job,   time(hour=21, minute=0, tzinfo=tz), name="evening")
+    log.info("Jobs scheduled for %s", TZ)
+
+# ── MAIN ────────────────────────────────────────────────────────────────────────
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Commands
+    # commands
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("whereami", whereami))
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("scroll", scroll))
+    app.add_handler(CommandHandler("blessing", blessing))
+    app.add_handler(CommandHandler("stats", stats))
 
-    # Scheduling (only if CHAT_ID provided)
-    if CHAT_ID != 0:
-        m_t = _parse_hhmm(MORNING_TIME)
-        a_t = _parse_hhmm(AFTERNOON_TIME)
-        e_t = _parse_hhmm(EVENING_TIME)
-
-        app.job_queue.run_daily(post_morning, time=m_t, name="morning")
-        app.job_queue.run_daily(post_afternoon, time=a_t, name="afternoon")
-        app.job_queue.run_daily(post_evening, time=e_t, name="evening")
-
-    app.run_polling()
+    schedule_jobs(app)
+    log.info("Herald is starting (polling)…")
+    app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
     main()

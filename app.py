@@ -1,28 +1,13 @@
 import os
 import logging
-from random import choice
-from datetime import time
-from zoneinfo import ZoneInfo
-
 from telegram import Update
 from telegram.constants import ParseMode
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, ContextTypes
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ── ENV ─────────────────────────────────────────────────────────────────────────
-BOT_TOKEN   = os.getenv("BOT_TOKEN")
-import os
-
-# Get the raw CHANNEL_ID string (e.g. "-1008476975484,@CyberSageGrove")
-raw_channels = os.getenv("CHANNEL_ID", "")
-
-# Split by comma and clean up spaces or newlines
-CHANNEL_IDS = [cid.strip() for cid in raw_channels.split(",") if cid.strip()]
-
-# Optional: show in logs for confirmation
-print(f"🌿 Loaded {len(CHANNEL_IDS)} channel(s): {CHANNEL_IDS}")
-TZ          = os.getenv("TZ", "America/Vancouver")
+# — ENV —
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
+TZ = os.getenv("TIMEZONE", "America/Vancouver")
 
 if not BOT_TOKEN:
     raise RuntimeError("Missing BOT_TOKEN")

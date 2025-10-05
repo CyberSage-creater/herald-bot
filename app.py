@@ -2,6 +2,7 @@ import os
 import logging
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
+from datetime import time
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (

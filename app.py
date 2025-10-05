@@ -12,7 +12,16 @@ from telegram.ext import (
 
 # ── ENV ─────────────────────────────────────────────────────────────────────────
 BOT_TOKEN   = os.getenv("BOT_TOKEN")
-CHANNEL_ID  = int(os.getenv("CHANNEL_ID", "0"))
+import os
+
+# Get the raw CHANNEL_ID string (e.g. "-1008476975484,@CyberSageGrove")
+raw_channels = os.getenv("CHANNEL_ID", "")
+
+# Split by comma and clean up spaces or newlines
+CHANNEL_IDS = [cid.strip() for cid in raw_channels.split(",") if cid.strip()]
+
+# Optional: show in logs for confirmation
+print(f"🌿 Loaded {len(CHANNEL_IDS)} channel(s): {CHANNEL_IDS}")
 TZ          = os.getenv("TZ", "America/Vancouver")
 
 if not BOT_TOKEN:
@@ -78,11 +87,11 @@ def pick_deck_by_hour(hour: int):
     return "evening", EVENING_DECK
 
 async def send(ctx: ContextTypes.DEFAULT_TYPE, text: str, chat_id: int | None = None):
-    await ctx.bot.send_message(
-        chat_id=chat_id or CHANNEL_ID,
-        text=text,
-        parse_mode=ParseMode.HTML
-    )
+    for cid in CHANNEL_IDS:
+    try:
+        await bot.send_message(chat_id=cid, text=message)
+    except Exception as e:
+        print(f"⚠️ Failed to send to {cid}: {e}")
 
 # ── COMMANDS ────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):

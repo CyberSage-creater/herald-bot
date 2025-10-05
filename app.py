@@ -73,11 +73,10 @@ def pick_deck_by_hour(hour: int):
 
 async def send(ctx: ContextTypes.DEFAULT_TYPE, text: str, chat_id: int | None = None):
     for cid in CHANNEL_IDS:
-    try:
-        await bot.send_message(chat_id=cid, text=message)
-    except Exception as e:
-        print(f"⚠️ Failed to send to {cid}: {e}")
-
+        try:
+            await bot.send_message(chat_id=cid, text=text)
+        except Exception as e:
+            print(f"⚠️ Failed to send to {cid}: {e}")
 # ── COMMANDS ────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(

@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # — ENV —
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TZ = os.getenv("TIMEZONE", "America/Vancouver")
 
 # Support either a single CHANNEL_ID or a comma-separated TARGET_IDS

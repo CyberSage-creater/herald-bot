@@ -67,4 +67,5 @@ EVENING_DECK = [
     "Lanterns of memory along the path.\n🌙 You carried the day.\n✨ Set it down; let it glow.",
     "Mist lifts from the creek.\n🌙 Breathe slow; the Grove breathes with you.\n✨ Soft power endures.",
     "Branches write constellations against the dark.\n🌙 Trust the long arc.\n✨ Harmony returns in circles.",
-    "The world becomes a hush of leaves.\n🌙 Patience is not pause—it is pres
+    "The world becomes a hush of leaves.\n🌙 Patience is not pause—it is presence."
+]

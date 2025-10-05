@@ -1,13 +1,13 @@
 import os
 import logging
-from datetime import time
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 from random import choice
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # — ENV —
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("BOT_TOKEN")
 TZ = os.getenv("TIMEZONE", "America/Vancouver")
 
 # Support either a single CHANNEL_ID or a comma-separated TARGET_IDS
@@ -28,7 +28,7 @@ def parse_target_ids() -> list[int]:
 TARGET_IDS = parse_target_ids()
 
 if not BOT_TOKEN:
-    raise RuntimeError("Missing BOT_TOKEN")
+    raise RuntimeError("Missing token: set TELEGRAM_BOT_TOKEN or BOT_TOKEN")
 if not TARGET_IDS:
     raise RuntimeError("Missing TARGET IDS: set TARGET_IDS (comma-separated) or CHANNEL_ID")
 
@@ -67,5 +67,51 @@ EVENING_DECK = [
     "Lanterns of memory along the path.\n🌙 You carried the day.\n✨ Set it down; let it glow.",
     "Mist lifts from the creek.\n🌙 Breathe slow; the Grove breathes with you.\n✨ Soft power endures.",
     "Branches write constellations against the dark.\n🌙 Trust the long arc.\n✨ Harmony returns in circles.",
-    "The world becomes a hush of leaves.\n🌙 Patience is not pause—it is presence."
+    "The world becomes a hush of leaves.\n🌙 Patience is not pause—it is presence.",
 ]
+
+# ── HELPERS ─────────────────────────────────────────────────────────────────────
+def period_now(tz: str) -> str:
+    now = datetime.now(ZoneInfo(tz)).time()
+    if time(5, 0) <= now < time(12, 0):
+        return "morning"
+    if time(12, 0) <= now < time(18, 0):
+        return "afternoon"
+    return "evening"
+
+def pick_scroll(tz: str) -> tuple[str, str]:
+    p = period_now(tz)
+    deck = MORNING_DECK if p == "morning" else AFTERNOON_DECK if p == "afternoon" else EVENING_DECK
+    return p, choice(deck)
+
+async def send_to_targets(text: str, context: ContextTypes.DEFAULT_TYPE) -> None:
+    for chat_id in TARGET_IDS:
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=text)
+            log.info("Sent to %s", chat_id)
+        except Exception as e:
+            log.exception("Failed to send to %s: %s", chat_id, e)
+
+# ── COMMANDS ────────────────────────────────────────────────────────────────────
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Herald is awake 🌱⚡")
+
+async def now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    p, text = pick_scroll(TZ)
+    await update.message.reply_text(f"({p})\n\n{text}")
+
+async def post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    p, text = pick_scroll(TZ)
+    await send_to_targets(f"{text}", context)
+    await update.message.reply_text(f"Posted a {p} scroll to {len(TARGET_IDS)} target(s).")
+
+# ── APP ─────────────────────────────────────────────────────────────────────────
+def main() -> None:
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("ping", ping))
+    app.add_handler(CommandHandler("now", now))
+    app.add_handler(CommandHandler("post", post))
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()

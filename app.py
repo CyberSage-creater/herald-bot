@@ -42,3 +42,29 @@ def infer_period_from_now(dt=None):
     Returns one of: 'morning', 'afternoon', 'evening'
     Morning: 05;
     """
+import os
+import logging
+from telegram.ext import ApplicationBuilder
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s | %(message)s"
+)
+
+TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TARGET_IDS = [int(x) for x in os.environ["TARGET_IDS"].split(",")]
+
+async def _on_start(app):
+    # Smoke post so we know the bot really booted
+    for cid in TARGET_IDS:
+        try:
+            await app.bot.send_message(chat_id=cid, text="🌱 Herald has awakened.")
+            logging.info("Startup post sent to %s", cid)
+        except Exception:
+            logging.exception("Startup post failed for %s", cid)
+
+if __name__ == "__main__":
+    logging.info("Herald starting…")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.post_init = _on_start
+    app.run_polling()

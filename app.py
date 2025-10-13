@@ -100,7 +100,40 @@ if __name__ == "__main__":
     app.post_init = _on_start
 
     # Add handlers here
+    from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
+
+# inline menu
+async def menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = [
+        [InlineKeyboardButton("🌅 Morning", callback_data="scroll:morning")],
+        [InlineKeyboardButton("⚡ Afternoon", callback_data="scroll:afternoon")],
+        [InlineKeyboardButton("🌙 Evening", callback_data="scroll:evening")],
+    ]
+    await update.message.reply_text(
+        "🌱 Choose a Grove scroll:",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
+
+# handle button clicks
+async def menu_pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    period = query.data.split(":")[1]
+    msg = build_scroll(period)   # your existing JSON-backed function
+    await query.message.reply_text(msg, parse_mode="Markdown")
+
+if __name__ == "__main__":
+    logging.info("Herald starting…")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.post_init = _on_start
+
+    # commands
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", start))
     app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_choice))
+    app.add_handler(CommandHandler("menu", menu_cmd))
+
+    # inline button handler
+    app.add_handler(CallbackQueryHandler(menu_pick, pattern=r"^scroll:(morning|afternoon|evening)$"))
+
+    app.run_polling()

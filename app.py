@@ -40,4 +40,5 @@ def _now_local():
 def infer_period_from_now(dt=None):
     """
     Returns one of: 'morning', 'afternoon', 'evening'
-    Morning: 05:
+    Morning: 05;
+    """

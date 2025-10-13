@@ -104,10 +104,3 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("menu", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_choice))
-
-    app.run_polling()
-if __name__ == "__main__":
-    logging.info("Herald starting…")
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.post_init = _on_start
-    app.run_polling()

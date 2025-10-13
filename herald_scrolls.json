@@ -1,5 +1,5 @@
 {
-  "morning_scrolls": [
+  "morning": [
     {
       "virtue": "Hope",
       "symbols": ["☀️", "🌱"],
@@ -36,7 +36,7 @@
       "message": "✨🌿 Light rests upon green things. So too may your words rest gently upon others. 🍃"
     }
   ],
-  "afternoon_scrolls": [
+  "afternoon": [
     {
       "virtue": "Resilience",
       "symbols": ["🔥", "🌲"],
@@ -73,7 +73,7 @@
       "message": "🌤🌳 In the still shade, knowing arrives quietly. Listen beneath your thoughts. 🌙"
     }
   ],
-  "evening_scrolls": [
+  "evening": [
     {
       "virtue": "Patience",
       "symbols": ["🌙", "🕯"],

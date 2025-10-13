@@ -104,6 +104,26 @@ if __name__ == "__main__":
 from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
 
 # inline menu
+import json, random
+
+def build_scroll(period):
+    try:
+        with open("herald_scrolls.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Pick a random scroll from the right time of day
+        scrolls = data.get(period, [])
+        if not scrolls:
+            return f"🌙 The Grove is quiet — no {period} scrolls are ready yet."
+
+        chosen = random.choice(scrolls)
+        virtue = chosen.get("virtue", "")
+        symbols = "".join(chosen.get("symbols", []))
+        message = chosen.get("message", "")
+        return f"{symbols} *{virtue}*\n{message}"
+
+    except Exception as e:
+        return f"⚠️ The Grove rustled but could not speak: {e}"
 async def menu_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [
         [InlineKeyboardButton("🌅 Morning", callback_data="scroll:morning")],

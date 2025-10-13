@@ -62,7 +62,50 @@ async def _on_start(app):
             logging.info("Startup post sent to %s", cid)
         except Exception:
             logging.exception("Startup post failed for %s", cid)
+# --- Manual scroll request system -----------------------------------
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
 
+MENU = [["🌅 Morning", "⚡ Afternoon", "🌙 Evening"]]
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🌱 Welcome to the Grove.\nChoose a time to receive a scroll:",
+        reply_markup=ReplyKeyboardMarkup(MENU, resize_keyboard=True)
+    )
+
+async def handle_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.lower()
+    if "morning" in text:
+        period = "morning"
+    elif "afternoon" in text:
+        period = "afternoon"
+    elif "evening" in text:
+        period = "evening"
+    else:
+        await update.message.reply_text("I don’t know that scroll yet 🌱")
+        return
+
+    msg = build_scroll(period)
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Type /menu to request a Grove scroll 🌿")
+
+# -----------------------------------------------------------
+
+if __name__ == "__main__":
+    logging.info("Herald starting…")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.post_init = _on_start
+
+    # Add handlers here
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("menu", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_choice))
+
+    app.run_polling()
 if __name__ == "__main__":
     logging.info("Herald starting…")
     app = ApplicationBuilder().token(TOKEN).build()
